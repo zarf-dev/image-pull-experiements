@@ -11,6 +11,7 @@ import (
 	"oras.land/oras-go/v2/registry"
 	"oras.land/oras-go/v2/registry/remote"
 	"oras.land/oras-go/v2/registry/remote/auth"
+	"try-oras.com/cache"
 )
 
 func doOras() error {
@@ -32,8 +33,12 @@ func doOras() error {
 		return err
 	}
 	repo.Client = client
-
-	desc, err := oras.Copy(ctx, repo, image, dst, "", copyOpts)
+	cachePath, err := oci.New(filepath.Join(cwd, "test-cache"))
+	if err != nil {
+		return err
+	}
+	cachedDst := cache.New(repo, cachePath)
+	desc, err := oras.Copy(ctx, cachedDst, image, dst, "", copyOpts)
 	if err != nil {
 		return fmt.Errorf("failed to copy: %w", err)
 	}
