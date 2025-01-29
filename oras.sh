@@ -1,5 +1,10 @@
 rm -rf oras-local
-oras copy --concurrency 10 nvcr.io/nvidia/k8s/dcgm-exporter:3.3.0-3.2.0-ubuntu22.04 --to-oci-layout oras-local
+# oras copy --concurrency 10 ghcr.io/austinabro321/one-large-layer:v0.0.1 --to-oci-layout oras-local
+oras copy --from-plain-http --concurrency 10 localhost:5000/one-large-layer:v0.0.1 --to-oci-layout oras-local
+
+
+
+# oras copy --concurrency 10 nvcr.io/nvidia/k8s/dcgm-exporter:3.3.0-3.2.0-ubuntu22.04 --to-oci-layout oras-local
 # oras copy --concurrency 10 nvcr.io/nvidia/k8s/container-toolkit:v1.14.6-ubuntu20.04 --to-oci-layout oras-local
 # oras copy --concurrency 10 registry.k8s.io/nfd/node-feature-discovery:v0.14.2 --to-oci-layout oras-local
 # oras copy --concurrency 10 nvcr.io/nvidia/gpu-feature-discovery:v0.8.2-ubi8 --to-oci-layout oras-local
