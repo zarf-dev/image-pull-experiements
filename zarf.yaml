@@ -1,0 +1,23 @@
+kind: ZarfPackageConfig
+metadata:
+  name: test-package
+  version: 1.0.0
+# takes about 1 minute
+components:
+  - name: gpu-operator
+    required: true
+    images:
+      - nvcr.io/nvidia/k8s/dcgm-exporter:3.3.0-3.2.0-ubuntu22.04 # 1.08 GBs
+      - nvcr.io/nvidia/k8s/container-toolkit:v1.14.6-ubuntu20.04 # 128.70 MBs      
+      - registry.k8s.io/nfd/node-feature-discovery:v0.14.2
+      - nvcr.io/nvidia/gpu-feature-discovery:v0.8.2-ubi8
+      - nvcr.io/nvidia/k8s-device-plugin:v0.14.5-ubi8      
+      - nvcr.io/nvidia/gpu-operator:v23.9.2
+      - nvcr.io/nvidia/cloud-native/gpu-operator-validator:v23.9.2
+      - nvcr.io/nvidia/cloud-native/k8s-driver-manager:v0.6.5
+      - ghcr.io/fluxcd/helm-controller:v1.1.0
+      - ghcr.io/fluxcd/image-automation-controller:v0.39.0
+      - ghcr.io/fluxcd/image-reflector-controller:v0.33.0
+      - ghcr.io/fluxcd/kustomize-controller:v1.4.0
+      - ghcr.io/fluxcd/notification-controller:v1.4.0
+      - ghcr.io/fluxcd/source-controller:v1.4.1      

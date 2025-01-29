@@ -1,0 +1,34 @@
+ghcr.io:
+  images:
+    fluxcd/helm-controller:
+      - "v1.1.0"
+    fluxcd/image-automation-controller:
+      - "v0.39.0"
+    fluxcd/image-reflector-controller:
+      - "v0.33.0"
+    fluxcd/kustomize-controller:
+      - "v1.4.0"
+    fluxcd/notification-controller:
+      - "v1.4.0"
+    fluxcd/source-controller:
+      - "v1.4.1"
+registry.k8s.io:
+  images:
+      nfd/node-feature-discovery:
+        - "v0.14.2"
+nvcr.io:
+  images:
+    nvidia/gpu-feature-discovery:
+      - "v0.8.2-ubi8"
+    nvidia/k8s-device-plugin:
+      - "v0.14.5-ubi8"
+    nvidia/k8s/container-toolkit:
+      - "v1.14.6-ubuntu20.04"
+    nvidia/gpu-operator:
+      - "v23.9.2"
+    nvidia/cloud-native/gpu-operator-validator:
+      - "v23.9.2"
+    nvidia/cloud-native/k8s-driver-manager:
+      - "v0.6.5"
+    nvidia/k8s/dcgm-exporter:
+      - "3.3.0-3.2.0-ubuntu22.04"      
