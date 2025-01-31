@@ -8,6 +8,7 @@ import (
 	"strings"
 
 	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
+	"golang.org/x/sync/errgroup"
 	"oras.land/oras-go/v2"
 	"oras.land/oras-go/v2/content/oci"
 	"oras.land/oras-go/v2/registry"
@@ -22,7 +23,6 @@ import (
 func doOras() error {
 	ctx := context.Background()
 	client := auth.DefaultClient
-	repo := &remote.Repository{}
 	cwd, err := os.Getwd()
 	if err != nil {
 		return err
@@ -31,40 +31,60 @@ func doOras() error {
 	if err != nil {
 		return err
 	}
-	// image := "docker.io/library/alpine:latest"
-	image := "ghcr.io/fluxcd/image-automation-controller:v0.39.0"
+	images := []string{
+		"ghcr.io/fluxcd/image-automation-controller:v0.39.0",
+		"ghcr.io/fluxcd/image-reflector-controller:v0.33.0",
+		"ghcr.io/fluxcd/kustomize-controller:v1.4.0",
+		"ghcr.io/fluxcd/notification-controller:v1.4.0",
+		"ghcr.io/fluxcd/source-controller:v1.4.1",
+	}
 	copyOpts := oras.DefaultCopyOptions
-	repo.Reference, err = registry.ParseReference(image)
-	if err != nil {
-		return err
-	}
-	if !strings.Contains(image, "@") {
-		platform := ocispec.Platform{
-			Architecture: "amd64",
-			OS:           "linux",
+	eg, ectx := errgroup.WithContext(ctx)
+	for range 10 {
+		for _, image := range images {
+			image := image
+			eg.Go(func() error {
+				select {
+				case <-ectx.Done():
+					return ectx.Err()
+				default:
+					localRepo := &remote.Repository{}
+					localRepo.Reference, err = registry.ParseReference(image)
+					if err != nil {
+						return err
+					}
+					if !strings.Contains(image, "@") {
+						platform := ocispec.Platform{
+							Architecture: "amd64",
+							OS:           "linux",
+						}
+						resolveOpts := oras.ResolveOptions{
+							TargetPlatform: &platform,
+						}
+						platformDesc, err := oras.Resolve(ctx, localRepo, localRepo.Reference.Reference, resolveOpts)
+						if err != nil {
+							return err
+						}
+						image = fmt.Sprintf("%s@%s", image, platformDesc.Digest)
+						fmt.Println("new image", image)
+					}
+					localRepo.Client = client
+					cachePath, err := oci.New(filepath.Join(cwd, "test-cache"))
+					if err != nil {
+						return err
+					}
+					cachedDst := cache.New(localRepo, cachePath)
+					desc, err := oras.Copy(ctx, cachedDst, image, dst, "", copyOpts)
+					if err != nil {
+						return fmt.Errorf("failed to copy: %w", err)
+					}
+					fmt.Println(desc.Digest)
+					return nil
+				}
+			})
 		}
-		resolveOpts := oras.ResolveOptions{
-			TargetPlatform: &platform,
-		}
-		platformDesc, err := oras.Resolve(ctx, repo, repo.Reference.Reference, resolveOpts)
-		if err != nil {
-			return err
-		}
-		image = fmt.Sprintf("%s@%s", image, platformDesc.Digest)
-    fmt.Println("new image", image)
 	}
-	repo.Client = client
-	cachePath, err := oci.New(filepath.Join(cwd, "test-cache"))
-	if err != nil {
-		return err
-	}
-	cachedDst := cache.New(repo, cachePath)
-	desc, err := oras.Copy(ctx, cachedDst, image, dst, "", copyOpts)
-	if err != nil {
-		return fmt.Errorf("failed to copy: %w", err)
-	}
-	fmt.Println(desc.Digest)
-	return nil
+	return eg.Wait()
 }
 
 func main() {

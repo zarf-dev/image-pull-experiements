@@ -20,4 +20,4 @@ components:
       - ghcr.io/fluxcd/image-reflector-controller:v0.33.0
       - ghcr.io/fluxcd/kustomize-controller:v1.4.0
       - ghcr.io/fluxcd/notification-controller:v1.4.0
-      - ghcr.io/fluxcd/source-controller:v1.4.1      
+      - ghcr.io/fluxcd/source-controller:v1.4.1 
