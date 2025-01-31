@@ -5,7 +5,9 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 
+	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
 	"oras.land/oras-go/v2"
 	"oras.land/oras-go/v2/content/oci"
 	"oras.land/oras-go/v2/registry"
@@ -13,6 +15,9 @@ import (
 	"oras.land/oras-go/v2/registry/remote/auth"
 	"try-oras.com/cache"
 )
+
+// If there is an issue in the cache it will fail, assuming it needs to download the layer that the image is pointed to.
+// Would be interesting to potentially make
 
 func doOras() error {
 	ctx := context.Background()
@@ -26,11 +31,27 @@ func doOras() error {
 	if err != nil {
 		return err
 	}
-	image := "docker.io/library/alpine:latest"
+	// image := "docker.io/library/alpine:latest"
+	image := "ghcr.io/fluxcd/image-automation-controller:v0.39.0"
 	copyOpts := oras.DefaultCopyOptions
 	repo.Reference, err = registry.ParseReference(image)
 	if err != nil {
 		return err
+	}
+	if !strings.Contains(image, "@") {
+		platform := ocispec.Platform{
+			Architecture: "amd64",
+			OS:           "linux",
+		}
+		resolveOpts := oras.ResolveOptions{
+			TargetPlatform: &platform,
+		}
+		platformDesc, err := oras.Resolve(ctx, repo, repo.Reference.Reference, resolveOpts)
+		if err != nil {
+			return err
+		}
+		image = fmt.Sprintf("%s@%s", image, platformDesc.Digest)
+    fmt.Println("new image", image)
 	}
 	repo.Client = client
 	cachePath, err := oci.New(filepath.Join(cwd, "test-cache"))
