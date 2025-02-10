@@ -31,16 +31,45 @@ func doOras() error {
 	if err != nil {
 		return err
 	}
+	// Can we get this to fail when using unique images
+	// images := []string{
+	// 	"ghcr.io/fluxcd/image-automation-controller:v0.39.0",
+	// 	"ghcr.io/fluxcd/image-reflector-controller:v0.33.0",
+	// 	"ghcr.io/fluxcd/kustomize-controller:v1.4.0",
+	// 	"ghcr.io/fluxcd/notification-controller:v1.4.0",
+	// 	"ghcr.io/fluxcd/source-controller:v1.4.1",
+
+	// 	// "ghcr.io/austinabro321/10-layers:v0.0.1", // to test 
+	// }
 	images := []string{
-		"ghcr.io/fluxcd/image-automation-controller:v0.39.0",
-		"ghcr.io/fluxcd/image-reflector-controller:v0.33.0",
-		"ghcr.io/fluxcd/kustomize-controller:v1.4.0",
-		"ghcr.io/fluxcd/notification-controller:v1.4.0",
-		"ghcr.io/fluxcd/source-controller:v1.4.1",
-		// "ghcr.io/austinabro321/10-layers:v0.0.1", // to test 
+		"ghcr.io/austinabro321/dummy-unique-1:v0.0.2",
+		"ghcr.io/austinabro321/dummy-unique-1:v0.0.2",
+		"ghcr.io/austinabro321/dummy-unique-1:v0.0.2",
+		"ghcr.io/austinabro321/dummy-unique-1:v0.0.2",
+		"ghcr.io/austinabro321/dummy-unique-1:v0.0.2",
+		"ghcr.io/austinabro321/dummy-unique-1:v0.0.2",
+		"ghcr.io/austinabro321/dummy-unique-1:v0.0.2",
+		"ghcr.io/austinabro321/dummy-unique-1:v0.0.2",
+		"ghcr.io/austinabro321/dummy-unique-1:v0.0.2",
+		"ghcr.io/austinabro321/dummy-unique-1:v0.0.2",
+		"ghcr.io/austinabro321/dummy-unique-1:v0.0.2",
+		"ghcr.io/austinabro321/dummy-unique-1:v0.0.2",
+		"ghcr.io/austinabro321/dummy-unique-1:v0.0.2",
+		"ghcr.io/austinabro321/dummy-unique-1:v0.0.2",
+		"ghcr.io/austinabro321/dummy-unique-1:v0.0.2",
+		"ghcr.io/austinabro321/dummy-unique-1:v0.0.2",
+		"ghcr.io/austinabro321/dummy-unique-1:v0.0.2",
+		"ghcr.io/austinabro321/dummy-unique-1:v0.0.2",
+		"ghcr.io/austinabro321/dummy-unique-1:v0.0.2",
+		"ghcr.io/austinabro321/dummy-unique-1:v0.0.2",
+		"ghcr.io/austinabro321/dummy-unique-1:v0.0.2",
+		"ghcr.io/austinabro321/dummy-unique-1:v0.0.2",
+		"ghcr.io/austinabro321/dummy-unique-1:v0.0.2",
 	}
 	copyOpts := oras.DefaultCopyOptions
 	eg, ectx := errgroup.WithContext(ctx)
+	cachePath, err := oci.New(filepath.Join(cwd, "test-cache"))	
+	eg.SetLimit(25)
 	for _, image := range images {
 		image := image
 		eg.Go(func() error {
@@ -66,13 +95,9 @@ func doOras() error {
 						return err
 					}
 					image = fmt.Sprintf("%s@%s", image, platformDesc.Digest)
-					fmt.Println("new image", image)
 				}
+				fmt.Println("new image", image)
 				localRepo.Client = client
-				cachePath, err := oci.New(filepath.Join(cwd, "test-cache"))
-				if err != nil {
-					return err
-				}
 				cachedDst := cache.New(localRepo, cachePath)
 				desc, err := oras.Copy(ctx, cachedDst, image, dst, "", copyOpts)
 				if err != nil {
