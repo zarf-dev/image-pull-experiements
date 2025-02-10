@@ -37,52 +37,51 @@ func doOras() error {
 		"ghcr.io/fluxcd/kustomize-controller:v1.4.0",
 		"ghcr.io/fluxcd/notification-controller:v1.4.0",
 		"ghcr.io/fluxcd/source-controller:v1.4.1",
+		// "ghcr.io/austinabro321/10-layers:v0.0.1", // to test 
 	}
 	copyOpts := oras.DefaultCopyOptions
 	eg, ectx := errgroup.WithContext(ctx)
-	for range 10 {
-		for _, image := range images {
-			image := image
-			eg.Go(func() error {
-				select {
-				case <-ectx.Done():
-					return ectx.Err()
-				default:
-					localRepo := &remote.Repository{}
-					localRepo.Reference, err = registry.ParseReference(image)
-					if err != nil {
-						return err
-					}
-					if !strings.Contains(image, "@") {
-						platform := ocispec.Platform{
-							Architecture: "amd64",
-							OS:           "linux",
-						}
-						resolveOpts := oras.ResolveOptions{
-							TargetPlatform: &platform,
-						}
-						platformDesc, err := oras.Resolve(ctx, localRepo, localRepo.Reference.Reference, resolveOpts)
-						if err != nil {
-							return err
-						}
-						image = fmt.Sprintf("%s@%s", image, platformDesc.Digest)
-						fmt.Println("new image", image)
-					}
-					localRepo.Client = client
-					cachePath, err := oci.New(filepath.Join(cwd, "test-cache"))
-					if err != nil {
-						return err
-					}
-					cachedDst := cache.New(localRepo, cachePath)
-					desc, err := oras.Copy(ctx, cachedDst, image, dst, "", copyOpts)
-					if err != nil {
-						return fmt.Errorf("failed to copy: %w", err)
-					}
-					fmt.Println(desc.Digest)
-					return nil
+	for _, image := range images {
+		image := image
+		eg.Go(func() error {
+			select {
+			case <-ectx.Done():
+				return ectx.Err()
+			default:
+				localRepo := &remote.Repository{}
+				localRepo.Reference, err = registry.ParseReference(image)
+				if err != nil {
+					return err
 				}
-			})
-		}
+				if !strings.Contains(image, "@") {
+					platform := ocispec.Platform{
+						Architecture: "amd64",
+						OS:           "linux",
+					}
+					resolveOpts := oras.ResolveOptions{
+						TargetPlatform: &platform,
+					}
+					platformDesc, err := oras.Resolve(ctx, localRepo, localRepo.Reference.Reference, resolveOpts)
+					if err != nil {
+						return err
+					}
+					image = fmt.Sprintf("%s@%s", image, platformDesc.Digest)
+					fmt.Println("new image", image)
+				}
+				localRepo.Client = client
+				cachePath, err := oci.New(filepath.Join(cwd, "test-cache"))
+				if err != nil {
+					return err
+				}
+				cachedDst := cache.New(localRepo, cachePath)
+				desc, err := oras.Copy(ctx, cachedDst, image, dst, "", copyOpts)
+				if err != nil {
+					return fmt.Errorf("failed to copy: %w", err)
+				}
+				fmt.Println("finished copying image", desc.Digest)
+				return nil
+			}
+		})
 	}
 	return eg.Wait()
 }
