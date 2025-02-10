@@ -42,34 +42,50 @@ func doOras() error {
 	// 	// "ghcr.io/austinabro321/10-layers:v0.0.1", // to test 
 	// }
 	images := []string{
-		"ghcr.io/austinabro321/dummy-unique-1:v0.0.2",
-		"ghcr.io/austinabro321/dummy-unique-1:v0.0.2",
-		"ghcr.io/austinabro321/dummy-unique-1:v0.0.2",
-		"ghcr.io/austinabro321/dummy-unique-1:v0.0.2",
-		"ghcr.io/austinabro321/dummy-unique-1:v0.0.2",
-		"ghcr.io/austinabro321/dummy-unique-1:v0.0.2",
-		"ghcr.io/austinabro321/dummy-unique-1:v0.0.2",
-		"ghcr.io/austinabro321/dummy-unique-1:v0.0.2",
-		"ghcr.io/austinabro321/dummy-unique-1:v0.0.2",
-		"ghcr.io/austinabro321/dummy-unique-1:v0.0.2",
-		"ghcr.io/austinabro321/dummy-unique-1:v0.0.2",
-		"ghcr.io/austinabro321/dummy-unique-1:v0.0.2",
-		"ghcr.io/austinabro321/dummy-unique-1:v0.0.2",
-		"ghcr.io/austinabro321/dummy-unique-1:v0.0.2",
-		"ghcr.io/austinabro321/dummy-unique-1:v0.0.2",
-		"ghcr.io/austinabro321/dummy-unique-1:v0.0.2",
-		"ghcr.io/austinabro321/dummy-unique-1:v0.0.2",
-		"ghcr.io/austinabro321/dummy-unique-1:v0.0.2",
-		"ghcr.io/austinabro321/dummy-unique-1:v0.0.2",
-		"ghcr.io/austinabro321/dummy-unique-1:v0.0.2",
-		"ghcr.io/austinabro321/dummy-unique-1:v0.0.2",
-		"ghcr.io/austinabro321/dummy-unique-1:v0.0.2",
-		"ghcr.io/austinabro321/dummy-unique-1:v0.0.2",
+		"localhost:5000/dummy-unique:v0.0.1",
+		"localhost:5000/dummy-unique:v0.0.1",
+		"localhost:5000/dummy-unique:v0.0.1",
+		"localhost:5000/dummy-unique:v0.0.1",
+		"localhost:5000/dummy-unique:v0.0.1",
+		"localhost:5000/dummy-unique:v0.0.1",
+		"localhost:5000/dummy-unique:v0.0.1",
+		"localhost:5000/dummy-unique:v0.0.1",
+		"localhost:5000/dummy-unique:v0.0.1",
+		"localhost:5000/dummy-unique:v0.0.1",
+		"localhost:5000/dummy-unique:v0.0.1",
+		"localhost:5000/dummy-unique:v0.0.1",
+		"localhost:5000/dummy-unique:v0.0.1",
+		"localhost:5000/dummy-unique:v0.0.1",
+		"localhost:5000/dummy-unique:v0.0.1",
+		"localhost:5000/dummy-unique:v0.0.1",
+		"localhost:5000/dummy-unique:v0.0.1",
+		"localhost:5000/dummy-unique:v0.0.1",
+		"localhost:5000/dummy-unique:v0.0.1",
+		"localhost:5000/dummy-unique:v0.0.1",
+		"localhost:5000/dummy-unique:v0.0.1",
+		"localhost:5000/dummy-unique:v0.0.1",
+		"localhost:5000/dummy-unique:v0.0.1",
+		"localhost:5000/dummy-unique:v0.0.1",
+		"localhost:5000/dummy-unique:v0.0.1",
+		"localhost:5000/dummy-unique:v0.0.1",
+		"localhost:5000/dummy-unique:v0.0.1",
+		"localhost:5000/dummy-unique:v0.0.1",
+		"localhost:5000/dummy-unique:v0.0.1",
+		"localhost:5000/dummy-unique:v0.0.1",
+		"localhost:5000/dummy-unique:v0.0.1",
+		"localhost:5000/dummy-unique:v0.0.1",
+		"localhost:5000/dummy-unique:v0.0.1",
+		"localhost:5000/dummy-unique:v0.0.1",
+		"localhost:5000/dummy-unique:v0.0.1",
+		"localhost:5000/dummy-unique:v0.0.1",
+		"localhost:5000/dummy-unique:v0.0.1",
+		"localhost:5000/dummy-unique:v0.0.1",
+		"localhost:5000/dummy-unique:v0.0.1",
 	}
 	copyOpts := oras.DefaultCopyOptions
 	eg, ectx := errgroup.WithContext(ctx)
 	cachePath, err := oci.New(filepath.Join(cwd, "test-cache"))	
-	eg.SetLimit(25)
+	eg.SetLimit(15)
 	for _, image := range images {
 		image := image
 		eg.Go(func() error {
@@ -77,7 +93,7 @@ func doOras() error {
 			case <-ectx.Done():
 				return ectx.Err()
 			default:
-				localRepo := &remote.Repository{}
+				localRepo := &remote.Repository{PlainHTTP: true}
 				localRepo.Reference, err = registry.ParseReference(image)
 				if err != nil {
 					return err
