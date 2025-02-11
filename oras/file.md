@@ -3,3 +3,6 @@ This error happens concurrently when I was pulling several images at the same ti
 
 
 panic: failed to copy: failed to resolve ghcr.io/fluxcd/image-automation-controller:v0.39.0@sha256:48a89734dc82c3a2d4138554b3ad4acf93230f770b3a582f7f48be38436d031c: read failed: sha256:48a89734dc82c3a2d4138554b3ad4acf93230f770b3a582f7f48be38436d031c: application/vnd.oci.image.manifest.v1+json: already exists
+
+# notes
+One thing we could theoretically do is to get all the layers we are going to pull and if that layer already exists skip it when pulling the next image. The library would have to support skip functionality, and it might not matter if concurrency always works
