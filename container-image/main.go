@@ -9,6 +9,7 @@ import (
 	_ "github.com/containers/image/v5/oci/layout"
 	"github.com/containers/image/v5/signature"
 	"github.com/containers/image/v5/transports"
+	"golang.org/x/sync/errgroup"
 )
 
 func getPolicyContext() (*signature.PolicyContext, error) {
@@ -50,8 +51,57 @@ func doImagePull() error {
 	return nil
 }
 
+func doImagePullConcurrent() error {
+	ctx := context.Background()
+	ociTransport := transports.Get("oci")
+	dst, err := ociTransport.ParseReference("my-dir-concurrent")
+	if err != nil {
+		return fmt.Errorf("could parse transport reference: %w", err)
+	}
+	dockerTransport := transports.Get("docker")
+	policy, err := getPolicyContext()
+	if err != nil {
+		return fmt.Errorf("failed to get policy: %w", err)
+	}
+
+	images := []string{
+		"ghcr.io/fluxcd/image-automation-controller:v0.39.0",
+		"ghcr.io/fluxcd/image-automation-controller:v0.39.0",
+		"ghcr.io/fluxcd/image-automation-controller:v0.39.0",
+		"ghcr.io/fluxcd/image-automation-controller:v0.39.0",
+		"ghcr.io/fluxcd/image-automation-controller:v0.39.0",
+		"ghcr.io/fluxcd/image-automation-controller:v0.39.0",
+		"ghcr.io/fluxcd/image-automation-controller:v0.39.0",
+	}
+	eg, ectx := errgroup.WithContext(ctx)
+	eg.SetLimit(10)
+	for _, image := range images {
+		image := image
+		eg.Go(func() error {
+			select {
+			case <-ectx.Done():
+				return ectx.Err()
+			default:
+				src, err := dockerTransport.ParseReference(fmt.Sprintf("//%s", image))
+				if err != nil {
+					return fmt.Errorf("couldn't parse: %w", err)
+				}
+				_, err = copy.Image(ctx, policy, dst, src, nil)
+				if err != nil {
+					return fmt.Errorf("failed during copy: %w", err)
+				}
+			}
+			return nil
+		})
+	}
+	return eg.Wait()
+}
+
 func main() {
 	if err := doImagePull(); err != nil {
+		panic(err)
+	}
+	if err := doImagePullConcurrent(); err != nil {
 		panic(err)
 	}
 }
