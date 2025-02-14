@@ -12,15 +12,7 @@ import (
 )
 
 func getPolicyContext() (*signature.PolicyContext, error) {
-	var policy *signature.Policy // This could be cached across calls in opts.
-	policy = &signature.Policy{Default: []signature.PolicyRequirement{signature.NewPRInsecureAcceptAnything()}}
-	// if err != nil {
-	// 	return nil, err
-	// }
-	// policy, err = signature.NewPolicyFromFile(opts.policyPath)
-	// if err != nil {
-	// 	return nil, err
-	// }
+	policy := &signature.Policy{Default: []signature.PolicyRequirement{signature.NewPRInsecureAcceptAnything()}}
 	return signature.NewPolicyContext(policy)
 }
 
@@ -36,19 +28,29 @@ func doImagePull() error {
 	if err != nil {
 		return fmt.Errorf("failed to get policy: %w", err)
 	}
-	src, err := dockerTransport.ParseReference("//ghcr.io/fluxcd/image-automation-controller:v0.39.0")
-	if err != nil {
-		return fmt.Errorf("couldn't parse: %w", err)
+	images := []string{
+		"ghcr.io/fluxcd/image-automation-controller:v0.39.0",
+		"ghcr.io/fluxcd/image-reflector-controller:v0.33.0",
+		"ghcr.io/fluxcd/kustomize-controller:v1.4.0",
+		"ghcr.io/fluxcd/notification-controller:v1.4.0",
+		"ghcr.io/fluxcd/source-controller:v1.4.1",
+
+		// "ghcr.io/austinabro321/10-layers:v0.0.1", // to test
 	}
-	_, err = copy.Image(ctx, policy, dst, src, nil)
-	if err != nil {
-		return fmt.Errorf("failed during copy: %w", err)
+	for _, image := range images {
+		src, err := dockerTransport.ParseReference(fmt.Sprintf("//%s", image))
+		if err != nil {
+			return fmt.Errorf("couldn't parse: %w", err)
+		}
+		_, err = copy.Image(ctx, policy, dst, src, nil)
+		if err != nil {
+			return fmt.Errorf("failed during copy: %w", err)
+		}
 	}
 	return nil
 }
 
 func main() {
-	fmt.Println("hello world")
 	if err := doImagePull(); err != nil {
 		panic(err)
 	}
