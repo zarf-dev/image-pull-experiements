@@ -7,6 +7,8 @@ import (
 	"path/filepath"
 	"strings"
 
+	"github.com/docker/cli/cli/config"
+	"github.com/docker/cli/cli/config/configfile"
 	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
 	"golang.org/x/sync/errgroup"
 	"oras.land/oras-go/v2"
@@ -64,7 +66,7 @@ func doOrasPullConcurrent() error {
 	}
 	copyOpts := oras.DefaultCopyOptions
 	eg, ectx := errgroup.WithContext(ctx)
-	cachePath, err := oci.New(filepath.Join(cwd, "test-cache"))
+	cachePath, err := oci.NewWithContext(ctx, filepath.Join(cwd, "test-cache"))
 	eg.SetLimit(10)
 	for _, image := range images {
 		image := image
@@ -92,8 +94,13 @@ func doOrasPullConcurrent() error {
 					}
 					image = fmt.Sprintf("%s@%s", image, platformDesc.Digest)
 				}
-				fmt.Println("new image", image)
+				creds, err := getCreds(localRepo)
+				if err != nil {
+					return err
+				}
+				client.Credential = creds
 				localRepo.Client = client
+				fmt.Println("downloading image", image)
 				cachedDst := cache.New(localRepo, cachePath)
 				desc, err := oras.Copy(ctx, cachedDst, image, dst, "", copyOpts)
 				if err != nil {
@@ -108,7 +115,12 @@ func doOrasPullConcurrent() error {
 }
 
 func main() {
-	err := doOrasPullConcurrent()
+	var err error
+	// err := doOrasPullConcurrent()
+	// if err != nil {
+	// 	panic(err)
+	// }
+	err = DoOrasPull()
 	if err != nil {
 		panic(err)
 	}
@@ -126,7 +138,7 @@ func DoOrasPull() error {
 		return err
 	}
 	images := []string{
-		"ghcr.io/fluxcd/image-automation-controller:v0.39.0",
+		"ghcr.io/austinabro321/dummy-image-1:0.0.1",
 		"ghcr.io/fluxcd/image-reflector-controller:v0.33.0",
 		"ghcr.io/fluxcd/kustomize-controller:v1.4.0",
 		"ghcr.io/fluxcd/notification-controller:v1.4.0",
@@ -143,6 +155,12 @@ func DoOrasPull() error {
 		if err != nil {
 			return err
 		}
+		creds, err := getCreds(localRepo)
+		if err != nil {
+			return fmt.Errorf("failed to get credentials: %w", err)
+		}
+		client.Credential = creds
+		localRepo.Client = client
 		if !strings.Contains(image, "@") {
 			platform := ocispec.Platform{
 				Architecture: "amd64",
@@ -157,7 +175,6 @@ func DoOrasPull() error {
 			}
 			image = fmt.Sprintf("%s@%s", image, platformDesc.Digest)
 		}
-		localRepo.Client = client
 		cachedDst := cache.New(localRepo, cachePath)
 		desc, err := oras.Copy(ctx, cachedDst, image, dst, "", copyOpts)
 		if err != nil {
@@ -168,25 +185,28 @@ func DoOrasPull() error {
 	return nil
 }
 
-// cfg, err := config.Load(config.Dir())
-// if err != nil {
-// 	return err
-// }
-// configs := []*configfile.ConfigFile{cfg}
+func getCreds(localRepo *remote.Repository) (auth.CredentialFunc, error) {
+	cfg, err := config.Load(config.Dir())
+	if err != nil {
+		return nil, err
+	}
+	configs := []*configfile.ConfigFile{cfg}
+	key := localRepo.Reference.Registry
+	if key == "registry-1.docker.io" {
+		// Docker stores its credentials under the following key, otherwise credentials use the registry URL
+		key = "https://index.docker.io/v1/"
+	}
 
-// var key = image
+	authConf, err := configs[0].GetCredentialsStore(key).Get(key)
+	if err != nil {
+		return nil, fmt.Errorf("unable to get credentials for %s: %w", key, err)
+	}
 
-// authConf, err := configs[0].GetCredentialsStore(key).Get(key)
-// if err != nil {
-// 	return fmt.Errorf("unable to get credentials for %s: %w", key, err)
-// }
-
-// cred := auth.Credential{
-// 	Username:     authConf.Username,
-// 	Password:     authConf.Password,
-// 	AccessToken:  authConf.RegistryToken,
-// 	RefreshToken: authConf.IdentityToken,
-// }
-
-// client.Credential = auth.StaticCredential(repo.Reference.Reference, cred)
-// repo.Client = client
+	cred := auth.Credential{
+		Username:     authConf.Username,
+		Password:     authConf.Password,
+		AccessToken:  authConf.RegistryToken,
+		RefreshToken: authConf.IdentityToken,
+	}
+	return auth.StaticCredential(localRepo.Reference.Registry, cred), nil
+}
