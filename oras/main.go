@@ -44,30 +44,21 @@ func doOrasPullConcurrent() error {
 	// 	// "ghcr.io/austinabro321/10-layers:v0.0.1", // to test
 	// }
 	images := []string{
-		"localhost:5000/dummy-image-1:0.0.1",
-		"localhost:5000/dummy-image-2:0.0.1",
-		"localhost:5000/dummy-image-3:0.0.1",
-		"localhost:5000/dummy-image-4:0.0.1",
-		"localhost:5000/dummy-image-5:0.0.1",
-		"localhost:5000/dummy-image-6:0.0.1",
-		"localhost:5000/dummy-image-7:0.0.1",
-		"localhost:5000/dummy-image-8:0.0.1",
-		"localhost:5000/dummy-image-9:0.0.1",
-		"localhost:5000/dummy-image-10:0.0.1",
-		"localhost:5000/dummy-image-11:0.0.1",
-		"localhost:5000/dummy-image-12:0.0.1",
-		"localhost:5000/dummy-image-13:0.0.1",
-		"localhost:5000/dummy-image-14:0.0.1",
-		"localhost:5000/dummy-image-15:0.0.1",
-		"localhost:5000/dummy-image-16:0.0.1",
-		"localhost:5000/dummy-image-17:0.0.1",
-		"localhost:5000/dummy-image-18:0.0.1",
-		"localhost:5000/dummy-image-19:0.0.1",
+		"ghcr.io/austinabro321/dummy-image-1:0.0.1",
+		"ghcr.io/austinabro321/dummy-image-2:0.0.1",
+		"ghcr.io/austinabro321/dummy-image-3:0.0.1",
+		"ghcr.io/austinabro321/dummy-image-4:0.0.1",
+		"ghcr.io/austinabro321/dummy-image-5:0.0.1",
+		"ghcr.io/austinabro321/dummy-image-6:0.0.1",
+		"ghcr.io/austinabro321/dummy-image-7:0.0.1",
+		"ghcr.io/austinabro321/dummy-image-8:0.0.1",
+		"ghcr.io/austinabro321/dummy-image-9:0.0.1",
+		"ghcr.io/austinabro321/dummy-image-10:0.0.1",
 	}
 	copyOpts := oras.DefaultCopyOptions
 	eg, ectx := errgroup.WithContext(ctx)
 	cachePath, err := oci.NewWithContext(ctx, filepath.Join(cwd, "test-cache"))
-	eg.SetLimit(10)
+	eg.SetLimit(3)
 	for _, image := range images {
 		image := image
 		eg.Go(func() error {
@@ -80,6 +71,12 @@ func doOrasPullConcurrent() error {
 				if err != nil {
 					return err
 				}
+				creds, err := getCreds(localRepo)
+				if err != nil {
+					return err
+				}
+				client.Credential = creds
+				localRepo.Client = client
 				if !strings.Contains(image, "@") {
 					platform := ocispec.Platform{
 						Architecture: "amd64",
@@ -94,12 +91,6 @@ func doOrasPullConcurrent() error {
 					}
 					image = fmt.Sprintf("%s@%s", image, platformDesc.Digest)
 				}
-				creds, err := getCreds(localRepo)
-				if err != nil {
-					return err
-				}
-				client.Credential = creds
-				localRepo.Client = client
 				fmt.Println("downloading image", image)
 				cachedDst := cache.New(localRepo, cachePath)
 				desc, err := oras.Copy(ctx, cachedDst, image, dst, "", copyOpts)
@@ -116,14 +107,14 @@ func doOrasPullConcurrent() error {
 
 func main() {
 	var err error
-	// err := doOrasPullConcurrent()
-	// if err != nil {
-	// 	panic(err)
-	// }
-	err = DoOrasPull()
+	err = doOrasPullConcurrent()
 	if err != nil {
 		panic(err)
 	}
+	// err = DoOrasPull()
+	// if err != nil {
+	// 	panic(err)
+	// }
 }
 
 func DoOrasPull() error {
