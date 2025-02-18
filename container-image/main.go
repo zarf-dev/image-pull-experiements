@@ -35,10 +35,9 @@ func doImagePull() error {
 		"ghcr.io/fluxcd/kustomize-controller:v1.4.0",
 		"ghcr.io/fluxcd/notification-controller:v1.4.0",
 		"ghcr.io/fluxcd/source-controller:v1.4.1",
-
-		// "ghcr.io/austinabro321/10-layers:v0.0.1", // to test
 	}
 	for _, image := range images {
+		fmt.Println("downloading image", image)
 		src, err := dockerTransport.ParseReference(fmt.Sprintf("//%s", image))
 		if err != nil {
 			return fmt.Errorf("couldn't parse: %w", err)
@@ -65,26 +64,16 @@ func doImagePullConcurrent() error {
 	}
 
 	images := []string{
-		"ghcr.io/fluxcd/image-automation-controller:v0.39.0",
-		"ghcr.io/fluxcd/image-automation-controller:v0.39.0",
-		"ghcr.io/fluxcd/image-automation-controller:v0.39.0",
-		"ghcr.io/fluxcd/image-automation-controller:v0.39.0",
-		"ghcr.io/fluxcd/image-automation-controller:v0.39.0",
-		"ghcr.io/fluxcd/image-automation-controller:v0.39.0",
-		"ghcr.io/fluxcd/image-automation-controller:v0.39.0",
-		"ghcr.io/fluxcd/image-automation-controller:v0.39.0",
-		"ghcr.io/fluxcd/image-automation-controller:v0.39.0",
-		"ghcr.io/fluxcd/image-automation-controller:v0.39.0",
-		"ghcr.io/fluxcd/image-automation-controller:v0.39.0",
-		"ghcr.io/fluxcd/image-automation-controller:v0.39.0",
-		"ghcr.io/fluxcd/image-automation-controller:v0.39.0",
-		"ghcr.io/fluxcd/image-automation-controller:v0.39.0",
-		"ghcr.io/fluxcd/image-automation-controller:v0.39.0",
-		"ghcr.io/fluxcd/image-automation-controller:v0.39.0",
-		"ghcr.io/fluxcd/image-automation-controller:v0.39.0",
-		"ghcr.io/fluxcd/image-automation-controller:v0.39.0",
-		"ghcr.io/fluxcd/image-automation-controller:v0.39.0",
-		"ghcr.io/fluxcd/image-automation-controller:v0.39.0",		
+		"ghcr.io/austinabro321/dummy-image-1:0.0.1",
+		"ghcr.io/austinabro321/dummy-image-2:0.0.1",
+		"ghcr.io/austinabro321/dummy-image-3:0.0.1",
+		"ghcr.io/austinabro321/dummy-image-4:0.0.1",
+		"ghcr.io/austinabro321/dummy-image-5:0.0.1",
+		"ghcr.io/austinabro321/dummy-image-6:0.0.1",
+		"ghcr.io/austinabro321/dummy-image-7:0.0.1",
+		"ghcr.io/austinabro321/dummy-image-8:0.0.1",
+		"ghcr.io/austinabro321/dummy-image-9:0.0.1",
+		"ghcr.io/austinabro321/dummy-image-10:0.0.1",
 	}
 	eg, ectx := errgroup.WithContext(ctx)
 	for _, image := range images {
@@ -113,7 +102,7 @@ func main() {
 	if err := doImagePull(); err != nil {
 		panic(err)
 	}
-	if err := doImagePullConcurrent(); err != nil {
-		panic(err)
-	}
+	// if err := doImagePullConcurrent(); err != nil {
+	// 	panic(err)
+	// }
 }

@@ -34,31 +34,30 @@ func doOrasPullConcurrent() error {
 		return err
 	}
 	// Can we get this to fail when using unique images
-	// images := []string{
-	// 	"ghcr.io/fluxcd/image-automation-controller:v0.39.0",
-	// 	"ghcr.io/fluxcd/image-reflector-controller:v0.33.0",
-	// 	"ghcr.io/fluxcd/kustomize-controller:v1.4.0",
-	// 	"ghcr.io/fluxcd/notification-controller:v1.4.0",
-	// 	"ghcr.io/fluxcd/source-controller:v1.4.1",
-
-	// 	// "ghcr.io/austinabro321/10-layers:v0.0.1", // to test
-	// }
 	images := []string{
-		"ghcr.io/austinabro321/dummy-image-1:0.0.1",
-		"ghcr.io/austinabro321/dummy-image-2:0.0.1",
-		"ghcr.io/austinabro321/dummy-image-3:0.0.1",
-		"ghcr.io/austinabro321/dummy-image-4:0.0.1",
-		"ghcr.io/austinabro321/dummy-image-5:0.0.1",
-		"ghcr.io/austinabro321/dummy-image-6:0.0.1",
-		"ghcr.io/austinabro321/dummy-image-7:0.0.1",
-		"ghcr.io/austinabro321/dummy-image-8:0.0.1",
-		"ghcr.io/austinabro321/dummy-image-9:0.0.1",
-		"ghcr.io/austinabro321/dummy-image-10:0.0.1",
+		"ghcr.io/fluxcd/image-automation-controller:v0.39.0",
+		"ghcr.io/fluxcd/image-reflector-controller:v0.33.0",
+		"ghcr.io/fluxcd/kustomize-controller:v1.4.0",
+		"ghcr.io/fluxcd/notification-controller:v1.4.0",
+		"ghcr.io/fluxcd/source-controller:v1.4.1",
 	}
+	// images := []string{
+	// "ghcr.io/austinabro321/10-layers:v0.0.1",
+	// 	"ghcr.io/austinabro321/dummy-image-1:0.0.1",
+	// 	"ghcr.io/austinabro321/dummy-image-2:0.0.1",
+	// 	"ghcr.io/austinabro321/dummy-image-3:0.0.1",
+	// 	"ghcr.io/austinabro321/dummy-image-4:0.0.1",
+	// 	"ghcr.io/austinabro321/dummy-image-5:0.0.1",
+	// 	"ghcr.io/austinabro321/dummy-image-6:0.0.1",
+	// 	"ghcr.io/austinabro321/dummy-image-7:0.0.1",
+	// 	"ghcr.io/austinabro321/dummy-image-8:0.0.1",
+	// 	"ghcr.io/austinabro321/dummy-image-9:0.0.1",
+	// 	"ghcr.io/austinabro321/dummy-image-10:0.0.1",
+	// }
 	copyOpts := oras.DefaultCopyOptions
 	eg, ectx := errgroup.WithContext(ctx)
 	cachePath, err := oci.NewWithContext(ctx, filepath.Join(cwd, "test-cache"))
-	eg.SetLimit(3)
+	eg.SetLimit(5)
 	for _, image := range images {
 		image := image
 		eg.Go(func() error {
