@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/docker/cli/cli/config"
 	"github.com/docker/cli/cli/config/configfile"
@@ -48,6 +49,7 @@ func contains(slice []string, item string) bool {
 }
 
 func doOrasPullConcurrent() error {
+	start := time.Now()
 	ctx := context.Background()
 	client := auth.DefaultClient
 	cwd, err := os.Getwd()
@@ -59,12 +61,25 @@ func doOrasPullConcurrent() error {
 		return err
 	}
 	// Can we get this to fail when using unique images
+	// images := []string{
+	// 	"ghcr.io/fluxcd/image-automation-controller:v0.39.0",
+	// 	"ghcr.io/fluxcd/image-reflector-controller:v0.33.0",
+	// 	"ghcr.io/fluxcd/kustomize-controller:v1.4.0",
+	// 	"ghcr.io/fluxcd/notification-controller:v1.4.0",
+	// 	"ghcr.io/fluxcd/source-controller:v1.4.1",
+	// }
 	images := []string{
-		"ghcr.io/fluxcd/image-automation-controller:v0.39.0",
-		"ghcr.io/fluxcd/image-reflector-controller:v0.33.0",
-		"ghcr.io/fluxcd/kustomize-controller:v1.4.0",
-		"ghcr.io/fluxcd/notification-controller:v1.4.0",
-		"ghcr.io/fluxcd/source-controller:v1.4.1",
+		// "ghcr.io/austinabro321/10-layers:v0.0.1",
+		"ghcr.io/austinabro321/dummy-image-1:0.0.1",
+		"ghcr.io/austinabro321/dummy-image-2:0.0.1",
+		"ghcr.io/austinabro321/dummy-image-3:0.0.1",
+		"ghcr.io/austinabro321/dummy-image-4:0.0.1",
+		"ghcr.io/austinabro321/dummy-image-5:0.0.1",
+		"ghcr.io/austinabro321/dummy-image-6:0.0.1",
+		"ghcr.io/austinabro321/dummy-image-7:0.0.1",
+		"ghcr.io/austinabro321/dummy-image-8:0.0.1",
+		"ghcr.io/austinabro321/dummy-image-9:0.0.1",
+		"ghcr.io/austinabro321/dummy-image-10:0.0.1",
 	}
 	var layersToPull []string
 	imagesWLayers := map[string][]string{}
@@ -105,7 +120,6 @@ func doOrasPullConcurrent() error {
 		if err != nil {
 			return err
 		}
-		fmt.Println("layers are", len(manifest.Layers))
 		necessaryLayers := []string{}
 		for _, layer := range manifest.Layers {
 			if !contains(layersToPull, layer.Digest.String()) {
@@ -119,7 +133,7 @@ func doOrasPullConcurrent() error {
 	fmt.Println(imageShas)
 	eg, ectx := errgroup.WithContext(ctx)
 	cachePath, err := oci.NewWithContext(ctx, filepath.Join(cwd, "test-cache"))
-	eg.SetLimit(5)
+	eg.SetLimit(10)
 	for image, neededLayers := range imagesWLayers {
 		image := image
 		neededLayers := neededLayers
@@ -130,10 +144,10 @@ func doOrasPullConcurrent() error {
 			default:
 				copyOpts := oras.DefaultCopyOptions
 				copyOpts.PreCopy = func(ctx context.Context, src ocispec.Descriptor) error {
-					if src.MediaType == ocispec.MediaTypeImageLayer  || src.MediaType == ocispec.MediaTypeImageLayerGzip || src.MediaType == ocispec.MediaTypeImageLayerZstd {
+					if src.MediaType == ocispec.MediaTypeImageLayer || src.MediaType == ocispec.MediaTypeImageLayerGzip || src.MediaType == ocispec.MediaTypeImageLayerZstd {
 						if !contains(neededLayers, src.Digest.String()) {
 							fmt.Println("skipping layer", src.Digest.String())
-							return oras.SkipNode
+							return oras.SkipNode	
 						}
 					}
 					return nil
@@ -149,20 +163,6 @@ func doOrasPullConcurrent() error {
 				}
 				client.Credential = creds
 				localRepo.Client = client
-				if !strings.Contains(image, "@") {
-					platform := ocispec.Platform{
-						Architecture: "amd64",
-						OS:           "linux",
-					}
-					resolveOpts := oras.ResolveOptions{
-						TargetPlatform: &platform,
-					}
-					platformDesc, err := oras.Resolve(ctx, localRepo, localRepo.Reference.Reference, resolveOpts)
-					if err != nil {
-						return err
-					}
-					image = fmt.Sprintf("%s@%s", image, platformDesc.Digest)
-				}
 				fmt.Println("downloading image", image)
 				cachedDst := cache.New(localRepo, cachePath)
 				desc, err := oras.Copy(ctx, cachedDst, image, dst, "", copyOpts)
@@ -174,7 +174,12 @@ func doOrasPullConcurrent() error {
 			}
 		})
 	}
-	return eg.Wait()
+	err = eg.Wait()
+	if err != nil {
+		return err
+	}
+	fmt.Println("finished in", time.Since(start))
+	return nil
 }
 
 func main() {
