@@ -72,9 +72,21 @@ func doImagePullConcurrent() error {
 		"ghcr.io/fluxcd/image-automation-controller:v0.39.0",
 		"ghcr.io/fluxcd/image-automation-controller:v0.39.0",
 		"ghcr.io/fluxcd/image-automation-controller:v0.39.0",
+		"ghcr.io/fluxcd/image-automation-controller:v0.39.0",
+		"ghcr.io/fluxcd/image-automation-controller:v0.39.0",
+		"ghcr.io/fluxcd/image-automation-controller:v0.39.0",
+		"ghcr.io/fluxcd/image-automation-controller:v0.39.0",
+		"ghcr.io/fluxcd/image-automation-controller:v0.39.0",
+		"ghcr.io/fluxcd/image-automation-controller:v0.39.0",
+		"ghcr.io/fluxcd/image-automation-controller:v0.39.0",
+		"ghcr.io/fluxcd/image-automation-controller:v0.39.0",
+		"ghcr.io/fluxcd/image-automation-controller:v0.39.0",
+		"ghcr.io/fluxcd/image-automation-controller:v0.39.0",
+		"ghcr.io/fluxcd/image-automation-controller:v0.39.0",
+		"ghcr.io/fluxcd/image-automation-controller:v0.39.0",
+		"ghcr.io/fluxcd/image-automation-controller:v0.39.0",		
 	}
 	eg, ectx := errgroup.WithContext(ctx)
-	eg.SetLimit(10)
 	for _, image := range images {
 		image := image
 		eg.Go(func() error {

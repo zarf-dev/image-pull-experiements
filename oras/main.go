@@ -20,7 +20,7 @@ import (
 // If there is an issue in the cache it will fail, assuming it needs to download the layer that the image is pointed to.
 // Would be interesting to potentially make
 
-func doOras() error {
+func doOrasPullConcurrent() error {
 	ctx := context.Background()
 	client := auth.DefaultClient
 	cwd, err := os.Getwd()
@@ -39,7 +39,7 @@ func doOras() error {
 	// 	"ghcr.io/fluxcd/notification-controller:v1.4.0",
 	// 	"ghcr.io/fluxcd/source-controller:v1.4.1",
 
-	// 	// "ghcr.io/austinabro321/10-layers:v0.0.1", // to test 
+	// 	// "ghcr.io/austinabro321/10-layers:v0.0.1", // to test
 	// }
 	images := []string{
 		"localhost:5000/dummy-image-1:0.0.1",
@@ -64,7 +64,7 @@ func doOras() error {
 	}
 	copyOpts := oras.DefaultCopyOptions
 	eg, ectx := errgroup.WithContext(ctx)
-	cachePath, err := oci.New(filepath.Join(cwd, "test-cache"))	
+	cachePath, err := oci.New(filepath.Join(cwd, "test-cache"))
 	eg.SetLimit(10)
 	for _, image := range images {
 		image := image
@@ -108,10 +108,64 @@ func doOras() error {
 }
 
 func main() {
-	err := doOras()
+	err := doOrasPullConcurrent()
 	if err != nil {
 		panic(err)
 	}
+}
+
+func DoOrasPull() error {
+	ctx := context.Background()
+	client := auth.DefaultClient
+	cwd, err := os.Getwd()
+	if err != nil {
+		return err
+	}
+	dst, err := oci.New(filepath.Join(cwd, "download"))
+	if err != nil {
+		return err
+	}
+	images := []string{
+		"ghcr.io/fluxcd/image-automation-controller:v0.39.0",
+		"ghcr.io/fluxcd/image-reflector-controller:v0.33.0",
+		"ghcr.io/fluxcd/kustomize-controller:v1.4.0",
+		"ghcr.io/fluxcd/notification-controller:v1.4.0",
+		"ghcr.io/fluxcd/source-controller:v1.4.1",
+	}
+	copyOpts := oras.DefaultCopyOptions
+	cachePath, err := oci.New(filepath.Join(cwd, "test-cache"))
+	if err != nil {
+		return err
+	}
+	for _, image := range images {
+		localRepo := &remote.Repository{PlainHTTP: true}
+		localRepo.Reference, err = registry.ParseReference(image)
+		if err != nil {
+			return err
+		}
+		if !strings.Contains(image, "@") {
+			platform := ocispec.Platform{
+				Architecture: "amd64",
+				OS:           "linux",
+			}
+			resolveOpts := oras.ResolveOptions{
+				TargetPlatform: &platform,
+			}
+			platformDesc, err := oras.Resolve(ctx, localRepo, localRepo.Reference.Reference, resolveOpts)
+			if err != nil {
+				return err
+			}
+			image = fmt.Sprintf("%s@%s", image, platformDesc.Digest)
+		}
+		localRepo.Client = client
+		cachedDst := cache.New(localRepo, cachePath)
+		desc, err := oras.Copy(ctx, cachedDst, image, dst, "", copyOpts)
+		if err != nil {
+			return fmt.Errorf("failed to copy: %w", err)
+		}
+		fmt.Println("finished copying image", desc.Digest)
+	}
+	return nil
 }
 
 // cfg, err := config.Load(config.Dir())

@@ -35,7 +35,7 @@ func TestOrasNetworkInterruption(t *testing.T) {
 		}
 	}()
 
-	if err := doOras(); err != nil {
+	if err := doOrasPullConcurrent(); err != nil {
 		t.Fatalf("doOras failed: %v", err)
 	}
 }
