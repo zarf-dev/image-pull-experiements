@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"os"
 	"path/filepath"
@@ -12,6 +13,7 @@ import (
 	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
 	"golang.org/x/sync/errgroup"
 	"oras.land/oras-go/v2"
+	"oras.land/oras-go/v2/content"
 	"oras.land/oras-go/v2/content/oci"
 	"oras.land/oras-go/v2/registry"
 	"oras.land/oras-go/v2/registry/remote"
@@ -21,6 +23,29 @@ import (
 
 // If there is an issue in the cache it will fail, assuming it needs to download the layer that the image is pointed to.
 // Would be interesting to potentially make
+
+// images := []string{
+// "ghcr.io/austinabro321/10-layers:v0.0.1",
+// 	"ghcr.io/austinabro321/dummy-image-1:0.0.1",
+// 	"ghcr.io/austinabro321/dummy-image-2:0.0.1",
+// 	"ghcr.io/austinabro321/dummy-image-3:0.0.1",
+// 	"ghcr.io/austinabro321/dummy-image-4:0.0.1",
+// 	"ghcr.io/austinabro321/dummy-image-5:0.0.1",
+// 	"ghcr.io/austinabro321/dummy-image-6:0.0.1",
+// 	"ghcr.io/austinabro321/dummy-image-7:0.0.1",
+// 	"ghcr.io/austinabro321/dummy-image-8:0.0.1",
+// 	"ghcr.io/austinabro321/dummy-image-9:0.0.1",
+// 	"ghcr.io/austinabro321/dummy-image-10:0.0.1",
+// }
+
+func contains(slice []string, item string) bool {
+	for _, s := range slice {
+		if s == item {
+			return true
+		}
+	}
+	return false
+}
 
 func doOrasPullConcurrent() error {
 	ctx := context.Background()
@@ -41,30 +66,78 @@ func doOrasPullConcurrent() error {
 		"ghcr.io/fluxcd/notification-controller:v1.4.0",
 		"ghcr.io/fluxcd/source-controller:v1.4.1",
 	}
-	// images := []string{
-	// "ghcr.io/austinabro321/10-layers:v0.0.1",
-	// 	"ghcr.io/austinabro321/dummy-image-1:0.0.1",
-	// 	"ghcr.io/austinabro321/dummy-image-2:0.0.1",
-	// 	"ghcr.io/austinabro321/dummy-image-3:0.0.1",
-	// 	"ghcr.io/austinabro321/dummy-image-4:0.0.1",
-	// 	"ghcr.io/austinabro321/dummy-image-5:0.0.1",
-	// 	"ghcr.io/austinabro321/dummy-image-6:0.0.1",
-	// 	"ghcr.io/austinabro321/dummy-image-7:0.0.1",
-	// 	"ghcr.io/austinabro321/dummy-image-8:0.0.1",
-	// 	"ghcr.io/austinabro321/dummy-image-9:0.0.1",
-	// 	"ghcr.io/austinabro321/dummy-image-10:0.0.1",
-	// }
-	copyOpts := oras.DefaultCopyOptions
+	var layersToPull []string
+	imagesWLayers := map[string][]string{}
+	imageShas := []string{}
+	for _, image := range images {
+		if strings.Contains(image, "@") {
+			imageShas = append(imageShas, image)
+			continue
+		}
+		localRepo := &remote.Repository{PlainHTTP: true}
+		localRepo.Reference, err = registry.ParseReference(image)
+		if err != nil {
+			return err
+		}
+		creds, err := getCreds(localRepo)
+		if err != nil {
+			return err
+		}
+		client.Credential = creds
+		localRepo.Client = client
+		platform := ocispec.Platform{
+			Architecture: "amd64",
+			OS:           "linux",
+		}
+		resolveOpts := oras.ResolveOptions{
+			TargetPlatform: &platform,
+		}
+		platformDesc, err := oras.Resolve(ctx, localRepo, localRepo.Reference.Reference, resolveOpts)
+		if err != nil {
+			return err
+		}
+		b, err := content.FetchAll(ctx, localRepo, platformDesc)
+		if err != nil {
+			return err
+		}
+		var manifest ocispec.Manifest
+		err = json.Unmarshal(b, &manifest)
+		if err != nil {
+			return err
+		}
+		fmt.Println("layers are", len(manifest.Layers))
+		necessaryLayers := []string{}
+		for _, layer := range manifest.Layers {
+			if !contains(layersToPull, layer.Digest.String()) {
+				layersToPull = append(layersToPull, layer.Digest.String())
+				necessaryLayers = append(necessaryLayers, layer.Digest.String())
+			}
+		}
+		imagesWLayers[image] = necessaryLayers
+		imageShas = append(imageShas, fmt.Sprintf("%s@%s", image, platformDesc.Digest))
+	}
+	fmt.Println(imageShas)
 	eg, ectx := errgroup.WithContext(ctx)
 	cachePath, err := oci.NewWithContext(ctx, filepath.Join(cwd, "test-cache"))
 	eg.SetLimit(5)
-	for _, image := range images {
+	for image, neededLayers := range imagesWLayers {
 		image := image
+		neededLayers := neededLayers
 		eg.Go(func() error {
 			select {
 			case <-ectx.Done():
 				return ectx.Err()
 			default:
+				copyOpts := oras.DefaultCopyOptions
+				copyOpts.PreCopy = func(ctx context.Context, src ocispec.Descriptor) error {
+					if src.MediaType == ocispec.MediaTypeImageLayer  || src.MediaType == ocispec.MediaTypeImageLayerGzip || src.MediaType == ocispec.MediaTypeImageLayerZstd {
+						if !contains(neededLayers, src.Digest.String()) {
+							fmt.Println("skipping layer", src.Digest.String())
+							return oras.SkipNode
+						}
+					}
+					return nil
+				}
 				localRepo := &remote.Repository{PlainHTTP: true}
 				localRepo.Reference, err = registry.ParseReference(image)
 				if err != nil {
