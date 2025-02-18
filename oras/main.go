@@ -50,8 +50,7 @@ func contains(slice []string, item string) bool {
 
 func doOrasPullConcurrent() error {
 	start := time.Now()
-	ctx := context.Background()
-	client := auth.DefaultClient
+	ctx := context.Background()	
 	cwd, err := os.Getwd()
 	if err != nil {
 		return err
@@ -98,6 +97,7 @@ func doOrasPullConcurrent() error {
 		if err != nil {
 			return err
 		}
+		client := auth.DefaultClient
 		client.Credential = creds
 		localRepo.Client = client
 		platform := ocispec.Platform{
@@ -147,7 +147,7 @@ func doOrasPullConcurrent() error {
 					if src.MediaType == ocispec.MediaTypeImageLayer || src.MediaType == ocispec.MediaTypeImageLayerGzip || src.MediaType == ocispec.MediaTypeImageLayerZstd {
 						if !contains(neededLayers, src.Digest.String()) {
 							fmt.Println("skipping layer", src.Digest.String())
-							return oras.SkipNode	
+							return oras.SkipNode
 						}
 					}
 					return nil
@@ -157,6 +157,7 @@ func doOrasPullConcurrent() error {
 				if err != nil {
 					return err
 				}
+				client := auth.DefaultClient
 				creds, err := getCreds(localRepo)
 				if err != nil {
 					return err
@@ -178,7 +179,7 @@ func doOrasPullConcurrent() error {
 	if err != nil {
 		return err
 	}
-	fmt.Println("finished in", time.Since(start))
+	fmt.Println("finished concurrent pulling in", time.Since(start))
 	return nil
 }
 
