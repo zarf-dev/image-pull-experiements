@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/docker/cli/cli/config"
@@ -50,7 +51,7 @@ func contains(slice []string, item string) bool {
 
 func doOrasPullConcurrent() error {
 	start := time.Now()
-	ctx := context.Background()	
+	ctx := context.Background()
 	cwd, err := os.Getwd()
 	if err != nil {
 		return err
@@ -80,57 +81,87 @@ func doOrasPullConcurrent() error {
 		"ghcr.io/austinabro321/dummy-image-9:0.0.1",
 		"ghcr.io/austinabro321/dummy-image-10:0.0.1",
 	}
-	var layersToPull []string
-	imagesWLayers := map[string][]string{}
-	imageShas := []string{}
-	for _, image := range images {
-		if strings.Contains(image, "@") {
-			imageShas = append(imageShas, image)
-			continue
-		}
-		localRepo := &remote.Repository{PlainHTTP: true}
-		localRepo.Reference, err = registry.ParseReference(image)
-		if err != nil {
-			return err
-		}
-		creds, err := getCreds(localRepo)
-		if err != nil {
-			return err
-		}
-		client := auth.DefaultClient
-		client.Credential = creds
-		localRepo.Client = client
-		platform := ocispec.Platform{
-			Architecture: "amd64",
-			OS:           "linux",
-		}
-		resolveOpts := oras.ResolveOptions{
-			TargetPlatform: &platform,
-		}
-		platformDesc, err := oras.Resolve(ctx, localRepo, localRepo.Reference.Reference, resolveOpts)
-		if err != nil {
-			return err
-		}
-		b, err := content.FetchAll(ctx, localRepo, platformDesc)
-		if err != nil {
-			return err
-		}
-		var manifest ocispec.Manifest
-		err = json.Unmarshal(b, &manifest)
-		if err != nil {
-			return err
-		}
-		necessaryLayers := []string{}
-		for _, layer := range manifest.Layers {
-			if !contains(layersToPull, layer.Digest.String()) {
-				layersToPull = append(layersToPull, layer.Digest.String())
-				necessaryLayers = append(necessaryLayers, layer.Digest.String())
-			}
-		}
-		imagesWLayers[image] = necessaryLayers
-		imageShas = append(imageShas, fmt.Sprintf("%s@%s", image, platformDesc.Digest))
+	platform := ocispec.Platform{
+		Architecture: "amd64",
+		OS:           "linux",
 	}
-	fmt.Println(imageShas)
+
+  // egCtx := 
+	g, _ := errgroup.WithContext(ctx)
+	var (
+		mu            sync.Mutex
+		layersToPull  []string
+		imagesWLayers = make(map[string][]string)
+	)
+
+	for _, image := range images {
+		// capture 'image' in local var for the goroutine
+		img := image
+
+		g.Go(func() error {
+			localRepo := &remote.Repository{PlainHTTP: true}
+			var err error
+
+			// Parse reference
+			localRepo.Reference, err = registry.ParseReference(img)
+			if err != nil {
+				return err
+			}
+
+			// Grab credentials
+			creds, err := getCreds(localRepo)
+			if err != nil {
+				return err
+			}
+
+			// Set up client with credentials
+			client := auth.DefaultClient
+			client.Credential = creds
+			localRepo.Client = client
+
+			// Resolve the reference
+			resolveOpts := oras.ResolveOptions{
+				TargetPlatform: &platform,
+			}
+			platformDesc, err := oras.Resolve(ctx, localRepo, localRepo.Reference.Reference, resolveOpts)
+			if err != nil {
+				return err
+			}
+
+			// Fetch the manifest contents
+			b, err := content.FetchAll(ctx, localRepo, platformDesc)
+			if err != nil {
+				return err
+			}
+
+			var manifest ocispec.Manifest
+			if err := json.Unmarshal(b, &manifest); err != nil {
+				return err
+			}
+
+			// Figure out which layers are new
+			necessaryLayers := []string{}
+			for _, layer := range manifest.Layers {
+				layerDigest := layer.Digest.String()
+
+				// Lock before checking and modifying shared slice
+				mu.Lock()
+				if !contains(layersToPull, layerDigest) {
+					layersToPull = append(layersToPull, layerDigest)
+					necessaryLayers = append(necessaryLayers, layerDigest)
+				}
+				mu.Unlock()
+			}
+
+			// Store the new layers for this image
+			mu.Lock()
+			imagesWLayers[img] = necessaryLayers
+			mu.Unlock()
+
+			return nil
+		})
+	}
+  g.Wait()
 	eg, ectx := errgroup.WithContext(ctx)
 	cachePath, err := oci.NewWithContext(ctx, filepath.Join(cwd, "test-cache"))
 	eg.SetLimit(10)
@@ -143,15 +174,17 @@ func doOrasPullConcurrent() error {
 				return ectx.Err()
 			default:
 				copyOpts := oras.DefaultCopyOptions
+				copyOpts.Concurrency = 10
 				copyOpts.PreCopy = func(ctx context.Context, src ocispec.Descriptor) error {
 					if src.MediaType == ocispec.MediaTypeImageLayer || src.MediaType == ocispec.MediaTypeImageLayerGzip || src.MediaType == ocispec.MediaTypeImageLayerZstd {
 						if !contains(neededLayers, src.Digest.String()) {
-							fmt.Println("skipping layer", src.Digest.String())
+							// fmt.Println("skipping layer", src.Digest.String())
 							return oras.SkipNode
 						}
 					}
 					return nil
 				}
+				copyOpts.WithTargetPlatform(&platform)
 				localRepo := &remote.Repository{PlainHTTP: true}
 				localRepo.Reference, err = registry.ParseReference(image)
 				if err != nil {
