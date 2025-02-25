@@ -30,11 +30,11 @@ func doImagePull() error {
 		return fmt.Errorf("failed to get policy: %w", err)
 	}
 	images := []string{
-		"ghcr.io/fluxcd/image-automation-controller:v0.39.0",
-		"ghcr.io/fluxcd/image-reflector-controller:v0.33.0",
-		"ghcr.io/fluxcd/kustomize-controller:v1.4.0",
-		"ghcr.io/fluxcd/notification-controller:v1.4.0",
-		"ghcr.io/fluxcd/source-controller:v1.4.1",
+		"ghcr.io/austinabro321/dummy-image-1:0.0.1",
+		// "ghcr.io/fluxcd/image-reflector-controller:v0.33.0",
+		// "ghcr.io/fluxcd/kustomize-controller:v1.4.0",
+		// "ghcr.io/fluxcd/notification-controller:v1.4.0",
+		// "ghcr.io/fluxcd/source-controller:v1.4.1",
 	}
 	for _, image := range images {
 		fmt.Println("downloading image", image)
@@ -42,7 +42,7 @@ func doImagePull() error {
 		if err != nil {
 			return fmt.Errorf("couldn't parse: %w", err)
 		}
-		_, err = copy.Image(ctx, policy, dst, src, nil)
+		_, err = copy.Image(ctx, policy, dst, src, &copy.Options{})
 		if err != nil {
 			return fmt.Errorf("failed during copy: %w", err)
 		}
@@ -50,7 +50,46 @@ func doImagePull() error {
 	return nil
 }
 
-func doImagePullConcurrent() error {
+func doImagePush() error {
+	ctx := context.Background()
+	ociTransport := transports.Get("oci")
+	srcRef, err := ociTransport.ParseReference("my-dir")
+	if err != nil {
+		return fmt.Errorf("invalid source name: %v", err)
+	}
+
+	dockerTransport := transports.Get("docker")
+	destRef, err := dockerTransport.ParseReference("docker://ghcr.io/austinabro321/dummy-image-1:0.0.1")
+	if err != nil {
+		return fmt.Errorf("invalid destination name: %v", err)
+	}
+
+
+	policyContext, err := getPolicyContext()
+	if err != nil {
+		return fmt.Errorf("error loading trust policy: %v", err)
+	}
+	defer policyContext.Destroy()
+
+	_, err = copy.Image(ctx, policyContext, destRef, srcRef, &copy.Options{})
+	if err != nil {
+		return fmt.Errorf("error copying image: %v", err)
+	}
+
+	fmt.Println("Image pushed successfully!")
+	return nil
+}
+
+func main() {
+	if err := doImagePull(); err != nil {
+		panic(err)
+	}
+	if err := doImagePush(); err != nil {
+		panic(err)
+	}
+}
+
+func DoImagePullConcurrent() error {
 	ctx := context.Background()
 	ociTransport := transports.Get("oci")
 	dst, err := ociTransport.ParseReference("my-dir-concurrent")
@@ -96,13 +135,4 @@ func doImagePullConcurrent() error {
 		})
 	}
 	return eg.Wait()
-}
-
-func main() {
-	if err := doImagePull(); err != nil {
-		panic(err)
-	}
-	// if err := doImagePullConcurrent(); err != nil {
-	// 	panic(err)
-	// }
 }

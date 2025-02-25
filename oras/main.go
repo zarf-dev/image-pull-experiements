@@ -249,6 +249,7 @@ func DoOrasPush() error {
 	}
 	client.Credential = credFunc
 	repo.Client = client
+	oras.DefaultCopyOptions.Concurrency = 10
 
 	desc, err := oras.Copy(ctx, localStore, reference, repo, "", oras.DefaultCopyOptions)
 	if err != nil {
