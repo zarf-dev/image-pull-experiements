@@ -86,7 +86,7 @@ func doOrasPullConcurrent() error {
 		OS:           "linux",
 	}
 
-  // egCtx := 
+	// egCtx :=
 	g, _ := errgroup.WithContext(ctx)
 	var (
 		mu            sync.Mutex
@@ -161,7 +161,7 @@ func doOrasPullConcurrent() error {
 			return nil
 		})
 	}
-  g.Wait()
+	g.Wait()
 	eg, ectx := errgroup.WithContext(ctx)
 	cachePath, err := oci.NewWithContext(ctx, filepath.Join(cwd, "test-cache"))
 	eg.SetLimit(10)
@@ -222,10 +222,42 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
-	// err = DoOrasPull()
-	// if err != nil {
-	// 	panic(err)
-	// }
+	err = DoOrasPush()
+	if err != nil {
+		panic(err)
+	}
+}
+
+func DoOrasPush() error {
+	ctx := context.Background()
+
+	localStore, err := oci.New("download")
+	if err != nil {
+		return err
+	}
+
+	reference := "ghcr.io/austinabro321/dummy-image-1:0.0.1"
+	repo, err := remote.NewRepository(reference)
+	if err != nil {
+		return fmt.Errorf("failed to create repo: %w", err)
+	}
+
+	client := auth.DefaultClient
+	credFunc, err := getCreds(repo)
+	if err != nil {
+		return err
+	}
+	client.Credential = credFunc
+	repo.Client = client
+
+	desc, err := oras.Copy(ctx, localStore, reference, repo, "", oras.DefaultCopyOptions)
+	if err != nil {
+		return err
+	}
+
+	fmt.Printf("Pushed %s with digest %s\n", reference, desc.Digest)
+
+	return nil
 }
 
 func DoOrasPull() error {

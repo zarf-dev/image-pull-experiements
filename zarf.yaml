@@ -7,7 +7,6 @@ components:
   - name: gpu-operator
     required: true
     images:
-      - ghcr.io/austinabro321/10-layers:v0.0.1
       - ghcr.io/austinabro321/dummy-image-1:0.0.1
       - ghcr.io/austinabro321/dummy-image-2:0.0.1
       - ghcr.io/austinabro321/dummy-image-3:0.0.1
