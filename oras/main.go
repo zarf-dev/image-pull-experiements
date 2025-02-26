@@ -1,6 +1,7 @@
 package main
 
 import (
+	"archive/tar"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -11,12 +12,9 @@ import (
 	"sync"
 	"time"
 
-	"github.com/docker/docker/api/types"
-	"github.com/docker/docker/client"
-	"github.com/docker/docker/pkg/jsonmessage"
-	"github.com/docker/docker/registry"
 	"github.com/docker/cli/cli/config"
 	"github.com/docker/cli/cli/config/configfile"
+	"github.com/docker/docker/client"
 	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
 	"golang.org/x/sync/errgroup"
 	"oras.land/oras-go/v2"
@@ -221,21 +219,76 @@ func doOrasPullConcurrent() error {
 	return nil
 }
 
+func extractTar(tarPath, destDir string) error {
+	f, err := os.Open(tarPath)
+	if err != nil {
+		return fmt.Errorf("failed to open tar file: %w", err)
+	}
+	defer f.Close()
+
+	tr := tar.NewReader(f)
+
+	for {
+		header, err := tr.Next()
+		if err == io.EOF {
+			// End of archive
+			break
+		}
+		if err != nil {
+			return fmt.Errorf("failed to read tar entry: %w", err)
+		}
+
+		targetPath := filepath.Join(destDir, header.Name)
+
+		switch header.Typeflag {
+		case tar.TypeDir:
+			// Create directory if it doesn't exist
+			if err := os.MkdirAll(targetPath, 0o755); err != nil {
+				return fmt.Errorf("failed to create directory %s: %w", targetPath, err)
+			}
+
+		case tar.TypeReg:
+			// Ensure parent directory is created
+			if err := os.MkdirAll(filepath.Dir(targetPath), 0o755); err != nil {
+				return fmt.Errorf("failed to create parent directory for %s: %w", targetPath, err)
+			}
+
+			outFile, err := os.Create(targetPath)
+			if err != nil {
+				return fmt.Errorf("failed to create file %s: %w", targetPath, err)
+			}
+
+			if _, err := io.Copy(outFile, tr); err != nil {
+				outFile.Close()
+				return fmt.Errorf("failed to write file data for %s: %w", targetPath, err)
+			}
+			outFile.Close()
+		}
+	}
+
+	return nil
+}
+
 func main() {
 	var err error
 	err = doOrasPullConcurrent()
 	if err != nil {
 		panic(err)
 	}
-	err = DoOrasPush()
+	// err = DoOrasPush()
+	// if err != nil {
+	// 	panic(err)
+	// }
+	err = PullFromDocker()
 	if err != nil {
 		panic(err)
 	}
 }
 
 // PullFromDocker pulls a container image from the Docker daemon and adds it to an OCI-format directory.
-func PullFromDocker(image string, ociDir string) error {
+func PullFromDocker() error {
 	ctx := context.Background()
+	imageName := "ghcr.io/local/small-image:0.0.1"
 
 	// Initialize Docker client
 	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
@@ -244,39 +297,48 @@ func PullFromDocker(image string, ociDir string) error {
 	}
 	defer cli.Close()
 
-	// Pull the image from Docker daemon
-	fmt.Printf("Pulling image %s from Docker daemon...\n", image)
-	out, err := cli.ImagePull(ctx, image, types.ImagePullOptions{})
-	if err != nil {
-		return fmt.Errorf("failed to pull image: %w", err)
-	}
-	defer out.Close()
-
-	// Display the pull progress
-	if err := jsonmessage.DisplayJSONMessagesStream(out, os.Stdout, 0, false, nil); err != nil {
-		return fmt.Errorf("failed to display pull progress: %w", err)
-	}
-
 	// Save the image to a tar stream
-	imageReader, err := cli.ImageSave(ctx, []string{image})
+	imageReader, err := cli.ImageSave(ctx, []string{imageName})
 	if err != nil {
 		return fmt.Errorf("failed to save image: %w", err)
 	}
 	defer imageReader.Close()
 
+	tarFile, err := os.Create("image.tar")
+	if err != nil {
+		return fmt.Errorf("failed to create tar file: %w", err)
+	}
+	defer tarFile.Close()
+
+	// Read bytes from imageReader and write them to tarFile
+	if _, err := io.Copy(tarFile, imageReader); err != nil {
+		return fmt.Errorf("error writing image to tar file: %w", err)
+	}
+
+	// err = extractTar("image.tar", "docker-image")
+	// if err != nil {
+	// 	return err
+	// }
+
 	// Prepare OCI destination
-	ociStore, err := oci.New(ociDir)
+	dockerImageSrc, err := oci.New("docker-image")
 	if err != nil {
 		return fmt.Errorf("failed to create OCI store: %w", err)
 	}
 
+	ociDst, err := oci.New("download")
+	if err != nil {
+		return err
+	}
+
 	// Import the image into OCI store
-	fmt.Printf("Importing image %s into OCI directory %s...\n", image, ociDir)
-	if err := oras.Copy(ctx, ociStore, image, image, "", oras.DefaultCopyOptions); err != nil {
+	fmt.Printf("Importing image %s into OCI directory %s...\n", imageName, "download")
+	desc, err := oras.Copy(ctx, dockerImageSrc, imageName, ociDst, "", oras.DefaultCopyOptions)
+	if err != nil {
 		return fmt.Errorf("failed to import image into OCI store: %w", err)
 	}
 
-	fmt.Printf("Successfully imported image %s to OCI directory %s.\n", image, ociDir)
+	fmt.Printf("Successfully imported image %s to OCI directory\n", desc.Digest)
 	return nil
 }
 

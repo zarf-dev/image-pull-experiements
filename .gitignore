@@ -4,3 +4,4 @@ oras-local
 skopeo-local
 dummy-files
 docker_builds
+.aider*

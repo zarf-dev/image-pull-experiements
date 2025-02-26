@@ -8,3 +8,5 @@ panic: failed to copy: failed to resolve ghcr.io/fluxcd/image-automation-control
 
 # notes
 Another speed up unique to ORAS is the ability to skip a blob that we don't need. To do this we find the layers we are going to pull across all images. Any duplicates are pulled only once. This won't matter for layers already in the cache, but it ensures two images don't try to pull at the same time. A new image could come into the queue with the same layers as an image that is about to finish. No reason in this case for the image to re-pull that layer. This also removes the opportunity for any file system issues, oras probably solves this already with syncs, but this could lower the amount of waiting depending on how the sync is working. 
+
+Docker seems to work, you just need to grab it, unarchive it as an OCI directory, and add the right annotation

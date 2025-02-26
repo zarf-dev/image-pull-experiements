@@ -1,3 +1,3 @@
 rm -rf download
 rm -rf test-cache
-go run main.go
+go run main.go 
