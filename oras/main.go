@@ -4,12 +4,17 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
 	"sync"
 	"time"
 
+	"github.com/docker/docker/api/types"
+	"github.com/docker/docker/client"
+	"github.com/docker/docker/pkg/jsonmessage"
+	"github.com/docker/docker/registry"
 	"github.com/docker/cli/cli/config"
 	"github.com/docker/cli/cli/config/configfile"
 	ocispec "github.com/opencontainers/image-spec/specs-go/v1"
@@ -226,6 +231,53 @@ func main() {
 	if err != nil {
 		panic(err)
 	}
+}
+
+// PullFromDocker pulls a container image from the Docker daemon and adds it to an OCI-format directory.
+func PullFromDocker(image string, ociDir string) error {
+	ctx := context.Background()
+
+	// Initialize Docker client
+	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
+	if err != nil {
+		return fmt.Errorf("failed to create Docker client: %w", err)
+	}
+	defer cli.Close()
+
+	// Pull the image from Docker daemon
+	fmt.Printf("Pulling image %s from Docker daemon...\n", image)
+	out, err := cli.ImagePull(ctx, image, types.ImagePullOptions{})
+	if err != nil {
+		return fmt.Errorf("failed to pull image: %w", err)
+	}
+	defer out.Close()
+
+	// Display the pull progress
+	if err := jsonmessage.DisplayJSONMessagesStream(out, os.Stdout, 0, false, nil); err != nil {
+		return fmt.Errorf("failed to display pull progress: %w", err)
+	}
+
+	// Save the image to a tar stream
+	imageReader, err := cli.ImageSave(ctx, []string{image})
+	if err != nil {
+		return fmt.Errorf("failed to save image: %w", err)
+	}
+	defer imageReader.Close()
+
+	// Prepare OCI destination
+	ociStore, err := oci.New(ociDir)
+	if err != nil {
+		return fmt.Errorf("failed to create OCI store: %w", err)
+	}
+
+	// Import the image into OCI store
+	fmt.Printf("Importing image %s into OCI directory %s...\n", image, ociDir)
+	if err := oras.Copy(ctx, ociStore, image, image, "", oras.DefaultCopyOptions); err != nil {
+		return fmt.Errorf("failed to import image into OCI store: %w", err)
+	}
+
+	fmt.Printf("Successfully imported image %s to OCI directory %s.\n", image, ociDir)
+	return nil
 }
 
 func DoOrasPush() error {
