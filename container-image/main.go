@@ -19,7 +19,7 @@ func getPolicyContext() (*signature.PolicyContext, error) {
 	return signature.NewPolicyContext(policy)
 }
 
-func doImagePull(ociTransport types.ImageTransport) error {
+func DoImagePull(ociTransport types.ImageTransport) error {
 	ctx := context.Background()
 	dst, err := ociTransport.ParseReference("my-dir")
 	if err != nil {
@@ -31,10 +31,7 @@ func doImagePull(ociTransport types.ImageTransport) error {
 		return fmt.Errorf("failed to get policy: %w", err)
 	}
 	images := []string{
-		"ghcr.io/fluxcd/image-automation-controller:v0.39.0",
-		// "ghcr.io/fluxcd/kustomize-controller:v1.4.0",
-		// "ghcr.io/fluxcd/notification-controller:v1.4.0",
-		// "ghcr.io/fluxcd/source-controller:v1.4.1",
+		"ghcr.io/austinabro321/one-large-layer:v0.0.1",
 	}
 	for _, image := range images {
 		fmt.Println("downloading image", image)
@@ -42,7 +39,12 @@ func doImagePull(ociTransport types.ImageTransport) error {
 		if err != nil {
 			return fmt.Errorf("couldn't parse: %w", err)
 		}
-		_, err = copy.Image(ctx, policy, dst, src, &copy.Options{})
+		_, err = copy.Image(ctx, policy, dst, src, &copy.Options{
+			PreserveDigests: true,
+			DestinationCtx: &types.SystemContext{
+				BlobInfoCacheDir: "local-cache",
+			},
+		})
 		if err != nil {
 			return fmt.Errorf("failed during copy: %w", err)
 		}
@@ -50,7 +52,7 @@ func doImagePull(ociTransport types.ImageTransport) error {
 	return nil
 }
 
-func doImagePush(ociTransport types.ImageTransport) error {
+func DoImagePush(ociTransport types.ImageTransport) error {
 	ctx := context.Background()
 	srcRef, err := ociTransport.ParseReference("my-dir")
 	if err != nil {
@@ -77,7 +79,7 @@ func doImagePush(ociTransport types.ImageTransport) error {
 	return nil
 }
 
-func doImagePullDaemon(ociTransport types.ImageTransport) error {
+func DoImagePullDaemon(ociTransport types.ImageTransport) error {
 	ctx := context.Background()
 	dst, err := ociTransport.ParseReference("my-dir")
 	if err != nil {
@@ -102,15 +104,15 @@ func doImagePullDaemon(ociTransport types.ImageTransport) error {
 
 func main() {
 	ociTransport := transports.Get("oci")
-	if err := doImagePull(ociTransport); err != nil {
+	if err := DoImagePull(ociTransport); err != nil {
 		panic(err)
 	}
-	if err := doImagePullDaemon(ociTransport); err != nil {
-		panic(err)
-	}
-	if err := doImagePush(ociTransport); err != nil {
-		panic(err)
-	}
+	// if err := DoImagePullDaemon(ociTransport); err != nil {
+	// 	panic(err)
+	// }
+	// if err := DoImagePush(ociTransport); err != nil {
+	// 	panic(err)
+	// }
 }
 
 func DoImagePullConcurrent() error {

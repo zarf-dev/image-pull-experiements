@@ -2,7 +2,6 @@ kind: ZarfPackageConfig
 metadata:
   name: test-package
   version: 1.0.0
-# takes about 1 minute
 components:
   - name: gpu-operator
     required: true

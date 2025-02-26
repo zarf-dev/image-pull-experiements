@@ -262,6 +262,8 @@ func DoOrasPush() error {
 }
 
 func DoOrasPull() error {
+	// Potentially use this as a way to set creds
+	// credentials.NewStoreFromDocker()
 	ctx := context.Background()
 	client := auth.DefaultClient
 	cwd, err := os.Getwd()
