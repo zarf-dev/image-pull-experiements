@@ -10,6 +10,7 @@ import (
 	_ "github.com/containers/image/v5/oci/layout"
 	"github.com/containers/image/v5/signature"
 	"github.com/containers/image/v5/transports"
+	"github.com/containers/image/v5/types"
 	"golang.org/x/sync/errgroup"
 )
 
@@ -18,9 +19,8 @@ func getPolicyContext() (*signature.PolicyContext, error) {
 	return signature.NewPolicyContext(policy)
 }
 
-func doImagePull() error {
+func doImagePull(ociTransport types.ImageTransport) error {
 	ctx := context.Background()
-	ociTransport := transports.Get("oci")
 	dst, err := ociTransport.ParseReference("my-dir")
 	if err != nil {
 		return fmt.Errorf("could parse transport reference: %w", err)
@@ -50,9 +50,8 @@ func doImagePull() error {
 	return nil
 }
 
-func doImagePush() error {
+func doImagePush(ociTransport types.ImageTransport) error {
 	ctx := context.Background()
-	ociTransport := transports.Get("oci")
 	srcRef, err := ociTransport.ParseReference("my-dir")
 	if err != nil {
 		return fmt.Errorf("invalid source name: %v", err)
@@ -78,9 +77,8 @@ func doImagePush() error {
 	return nil
 }
 
-func doImagePullDaemon() error {
+func doImagePullDaemon(ociTransport types.ImageTransport) error {
 	ctx := context.Background()
-	ociTransport := transports.Get("oci")
 	dst, err := ociTransport.ParseReference("my-dir")
 	if err != nil {
 		return fmt.Errorf("could parse transport reference: %w", err)
@@ -103,15 +101,16 @@ func doImagePullDaemon() error {
 }
 
 func main() {
-	// if err := doImagePull(); err != nil {
-	// 	panic(err)
-	// }
-	if err := doImagePullDaemon(); err != nil {
+	ociTransport := transports.Get("oci")
+	if err := doImagePull(ociTransport); err != nil {
 		panic(err)
 	}
-	// if err := doImagePush(); err != nil {
-	// 	panic(err)
-	// }
+	if err := doImagePullDaemon(ociTransport); err != nil {
+		panic(err)
+	}
+	if err := doImagePush(ociTransport); err != nil {
+		panic(err)
+	}
 }
 
 func DoImagePullConcurrent() error {
