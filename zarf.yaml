@@ -7,16 +7,16 @@ components:
   - name: gpu-operator
     required: true
     images:
-      - ghcr.io/austinabro321/dummy-image-1:0.0.1
-      - ghcr.io/austinabro321/dummy-image-2:0.0.1
-      - ghcr.io/austinabro321/dummy-image-3:0.0.1
-      - ghcr.io/austinabro321/dummy-image-4:0.0.1
-      - ghcr.io/austinabro321/dummy-image-5:0.0.1
-      - ghcr.io/austinabro321/dummy-image-6:0.0.1
-      - ghcr.io/austinabro321/dummy-image-7:0.0.1
-      - ghcr.io/austinabro321/dummy-image-8:0.0.1		
-      - ghcr.io/austinabro321/dummy-image-9:0.0.1
-      - ghcr.io/austinabro321/dummy-image-10:0.0.1
+      - ghcr.io/austinabro321/small-image:1.0.0
+      # - ghcr.io/austinabro321/dummy-image-2:0.0.1
+      # - ghcr.io/austinabro321/dummy-image-3:0.0.1
+      # - ghcr.io/austinabro321/dummy-image-4:0.0.1
+      # - ghcr.io/austinabro321/dummy-image-5:0.0.1
+      # - ghcr.io/austinabro321/dummy-image-6:0.0.1
+      # - ghcr.io/austinabro321/dummy-image-7:0.0.1
+      # - ghcr.io/austinabro321/dummy-image-8:0.0.1
+      # - ghcr.io/austinabro321/dummy-image-9:0.0.1
+      # - ghcr.io/austinabro321/dummy-image-10:0.0.1
       # - nvcr.io/nvidia/k8s/dcgm-exporter:3.3.0-3.2.0-ubuntu22.04 # 1.08 GBs
       # - nvcr.io/nvidia/k8s/container-toolkit:v1.14.6-ubuntu20.04 # 128.70 MBs      
       # - registry.k8s.io/nfd/node-feature-discovery:v0.14.2

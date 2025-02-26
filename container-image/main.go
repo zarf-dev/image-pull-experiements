@@ -6,6 +6,7 @@ import (
 
 	"github.com/containers/image/v5/copy"
 	_ "github.com/containers/image/v5/docker"
+	_ "github.com/containers/image/v5/docker/daemon"
 	_ "github.com/containers/image/v5/oci/layout"
 	"github.com/containers/image/v5/signature"
 	"github.com/containers/image/v5/transports"
@@ -30,8 +31,7 @@ func doImagePull() error {
 		return fmt.Errorf("failed to get policy: %w", err)
 	}
 	images := []string{
-		"ghcr.io/austinabro321/dummy-image-1:0.0.1",
-		// "ghcr.io/fluxcd/image-reflector-controller:v0.33.0",
+		"ghcr.io/fluxcd/image-automation-controller:v0.39.0",
 		// "ghcr.io/fluxcd/kustomize-controller:v1.4.0",
 		// "ghcr.io/fluxcd/notification-controller:v1.4.0",
 		// "ghcr.io/fluxcd/source-controller:v1.4.1",
@@ -59,12 +59,10 @@ func doImagePush() error {
 	}
 
 	dockerTransport := transports.Get("docker")
-	destRef, err := dockerTransport.ParseReference("docker://ghcr.io/austinabro321/dummy-image-1:0.0.1")
+	destRef, err := dockerTransport.ParseReference("//ghcr.io/austinabro321/dummy-image-1:0.0.1")
 	if err != nil {
 		return fmt.Errorf("invalid destination name: %v", err)
 	}
-
-
 	policyContext, err := getPolicyContext()
 	if err != nil {
 		return fmt.Errorf("error loading trust policy: %v", err)
@@ -80,13 +78,40 @@ func doImagePush() error {
 	return nil
 }
 
+func doImagePullDaemon() error {
+	ctx := context.Background()
+	ociTransport := transports.Get("oci")
+	dst, err := ociTransport.ParseReference("my-dir")
+	if err != nil {
+		return fmt.Errorf("could parse transport reference: %w", err)
+	}
+	dockerDaemon := transports.Get("docker-daemon")
+	srcRef, err := dockerDaemon.ParseReference("ghcr.io/austinabro321/small-image:1.0.0")
+	if err != nil {
+		return fmt.Errorf("could parse transport reference: %w", err)
+	}
+	policy, err := getPolicyContext()
+	if err != nil {
+		return fmt.Errorf("failed to get policy: %w", err)
+	}
+	_, err = copy.Image(ctx, policy, dst, srcRef, &copy.Options{})
+	if err != nil {
+		return fmt.Errorf("failed during copy: %w", err)
+	}
+	fmt.Println("Image pulled successfully!")
+	return nil
+}
+
 func main() {
-	if err := doImagePull(); err != nil {
+	// if err := doImagePull(); err != nil {
+	// 	panic(err)
+	// }
+	if err := doImagePullDaemon(); err != nil {
 		panic(err)
 	}
-	if err := doImagePush(); err != nil {
-		panic(err)
-	}
+	// if err := doImagePush(); err != nil {
+	// 	panic(err)
+	// }
 }
 
 func DoImagePullConcurrent() error {
