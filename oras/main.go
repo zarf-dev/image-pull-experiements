@@ -291,13 +291,14 @@ func PullFromDocker() error {
 	imageName := "ghcr.io/local/small-image:0.0.1"
 
 	// Initialize Docker client
+	// TODO add things like Host here
 	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
 	if err != nil {
 		return fmt.Errorf("failed to create Docker client: %w", err)
 	}
-	defer cli.Close()
-
+	defer cli.Close()	
 	// Save the image to a tar stream
+	// TODO set platform as option during save
 	imageReader, err := cli.ImageSave(ctx, []string{imageName})
 	if err != nil {
 		return fmt.Errorf("failed to save image: %w", err)
@@ -315,12 +316,34 @@ func PullFromDocker() error {
 		return fmt.Errorf("error writing image to tar file: %w", err)
 	}
 
-	// err = extractTar("image.tar", "docker-image")
-	// if err != nil {
-	// 	return err
-	// }
+	err = extractTar("image.tar", "docker-image")
+	if err != nil {
+		return err
+	}
 
-	// Prepare OCI destination
+	b, err := os.ReadFile(filepath.Join("docker-image", "index.json"))
+	if err != nil {
+		return fmt.Errorf("failed to read index.json: %w", err)
+	}
+	var index ocispec.Index
+	if err := json.Unmarshal(b, &index); err != nil {
+		return fmt.Errorf("failed to unmarshal index.json: %w", err)
+	}
+	// Indexes should always contain exactly one manifests for the single image we are pulling
+	if len(index.Manifests) != 1 {
+		return fmt.Errorf("index.json does not contain one manifest")
+	}
+	// Docker does not properly set the image name annotation, we set it here so that ORAS can pick up the image 
+	index.Manifests[0].Annotations[ocispec.AnnotationRefName] = imageName
+	b, err = json.Marshal(index)
+	if err != nil {
+		return fmt.Errorf("failed to marshal index.json: %w", err)
+	}
+	err = os.WriteFile(filepath.Join("docker-image", "index.json"), b, 0o644)
+	if err != nil {
+		return fmt.Errorf("failed to write index.json: %w", err)
+	}
+
 	dockerImageSrc, err := oci.New("docker-image")
 	if err != nil {
 		return fmt.Errorf("failed to create OCI store: %w", err)
